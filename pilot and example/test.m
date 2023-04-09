@@ -30,12 +30,12 @@ frequencies = fC + (srs_subcarriers - N/2) * delta_f;
 x = Yf./Xf;
 X = ifft(x);
 
-% 计算频率轴
+% 计算轴 - 忽略变量定义，因为当成了fft
 Nx = length(x); % 信号长度
 fs = 1/srs_spacing;
 f = (0:Nx-1)*(fs/Nx); % 频率轴
 
-% 绘制复数信号的频谱
+% 绘制谱
 figure;
 plot(f/TC, abs(X));
 grid on;
