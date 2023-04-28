@@ -18,78 +18,49 @@ folder = '../data';  % 文件夹路径
 filePattern = fullfile(folder, '*.mat');  % 指定文件类型，这里是MAT文件
 matFiles = dir(filePattern);  % 获取所有符合要求的文件信息
 tau_ans = zeros(1,800);
-target_length = 50;
 
-grp1 = [126   141   221   238   290];  % 判定过大，大于190。
-grp2 = 142;  % 幅值太弱。
+M = 250;       % 协方差矩阵的阶数
+N_fft = 32768; % FFT点数（用于计算谱估计）
+
 %% 处理前400个文件
-for i = 1:20
+for i = 1:400
     filename = fullfile(matFiles(i).folder, matFiles(i).name);  % 获取文件名及路径
     data = load(filename);  % 加载MAT文件中的数据
     variable_names = who('-file', filename);  % 获取MAT文件中的变量名
     variable_name = variable_names{1};  % 假设MAT文件中只有一个变量
     Yf = data.(variable_name);  % 获取MAT文件中的变量值    % 对数据进行处理
     Hf = Yf./Xf;
-    f_tick_shift = 2*pi*srs_spacing*TC*(1:816);
-    % 对原始数据进行移动平均平滑
-    smoothed_data = unwrap(angle(Hf));
-    for k = 1:10
-        smoothed_data = movmean(smoothed_data, 10);
-    end
-    p = polyfit(f_tick_shift, smoothed_data, 1);
+    Nsig = mdltest_mcov(Hf');
 
-    [~, start_position] = find_decreasing_segment(smoothed_data, target_length);
-    p_part = polyfit(f_tick_shift(start_position+(1:target_length)), smoothed_data(start_position+(1:target_length)), 1);
-
-    h = abs(ifft(Hf));
-    interp = griddedInterpolant((1:num_srs_subcarriers)*4, h, 'cubic');
-    h = interp(1:num_srs_subcarriers*4);
-
-    Nh = length(h); % 信号长度
-    h_sel = h(1:52);
-    t_sel = (0:51)*(1/srs_spacing/Nh)/TC;
-
-    [result_h, result_t] = find_peaks_with_conditions(h_sel, t_sel);
+    % 调用MUSIC算法进行谱估计（不绘制谱估计结果）
+    [f_est, P_music] = music_algorithm(Hf, M, Nsig, N_fft);
     
-    % 记录第一个延迟峰值
-    if isempty(result_t)
-        fprintf('No valid peaks found in data of No.%d.\n', i);
-    end
+    % 延迟为正，频率为负，反转谱序列
+    P_music = P_music(end:-1:1);
+    
+    % 寻找峰值
+    [~, peak_indices] = findpeaks(P_music, 'SortStr', 'descend', 'NPeaks', Nsig);
+    f_est_peaks = f_est(peak_indices);
+    
+    % % 输出估计的频率和真实频率
+    % disp('Estimated Frequencies:');
+    % disp(f_est_peaks/TC/srs_spacing);
+    % 
+    % % 绘制MUSIC谱估计结果
+    % figure;
+    % plot(f_est/TC/srs_spacing, P_music, 'LineWidth', 1.2);
+    % xlabel('Frequency (units of pi)');
+    % ylabel('Magnitude / dB');
+    % title('MUSIC Spectrum');
+    % grid on;
+    % 
+    % % 标记估计的频率位置
+    % hold on;
+    % stem(f_est_peaks/TC/srs_spacing, max(P_music) * ones(size(f_est_peaks)), 'r', 'filled');
+    % hold off;
+    % xlim([0 256])
 
-    if p(1)/p_part(1) > 5 || p(1)/p_part(1) < 1/5
-        if result_t(1) < 50
-            tau_ans(i) =  result_t(1);
-        else
-            tau_ans(i) =  min(-p_part(1),-p(1));
-        end
-    else
-        tau_ans(i) =  result_t(1);
-    end
-
-
-
-    % 绘制谱
-    figure;
-    subplot(2,1,1)
-    plot(t_sel,h_sel);
-    grid on;
-    xlim([0 256])
-    hold on; stem(result_t, result_h, 'r', 'filled');
-    title(['ifft method, delay value: ' num2str(tau_ans(i))])
-
-    subplot(2,1,2)
-    plot(f_tick_shift,smoothed_data,'r');
-    hold on
-    plot(f_tick_shift,polyval(p,f_tick_shift),'g')
-    plot(f_tick_shift(start_position+(1:target_length)),polyval(p_part,f_tick_shift(start_position+(1:target_length))), 'b')
-    title(['fit with line, p1 = ' num2str(p(1)) ', p_part1 =' num2str(p_part(1))], 'Interpreter','none')
-    xlim([0 f_tick_shift(end)])
-    plot(f_tick_shift, unwrap(angle(Hf)), 'k')  % 相位复原，难点
-    plot(f_tick_shift, 816*abs(Hf), 'm')
-    legend('smooth-angle','fit-angle','part-angle','angle','Hf')
-    sgtitle(variable_name, 'Interpreter','none');
-
-
+    tau_ans(i) =  f_est_peaks(1)/TC/srs_spacing;
 end 
 %% 判断合理
 isInRange = (tau_ans(1:400) >= 0) & (tau_ans(1:400) <= 190); % 

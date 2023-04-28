@@ -18,6 +18,10 @@ folder = '../data';  % 文件夹路径
 filePattern = fullfile(folder, '*.mat');  % 指定文件类型，这里是MAT文件
 matFiles = dir(filePattern);  % 获取所有符合要求的文件信息
 tau_ans = zeros(1,800);
+tau_ans2 = zeros(4,800);
+
+M = 250;       % 协方差矩阵的阶数
+N_fft = 32768; % FFT点数（用于计算谱估计）
 %% 处理前400个文件
 for i = 1:400
     filename = fullfile(matFiles(i).folder, matFiles(i).name);  % 获取文件名及路径
@@ -26,23 +30,18 @@ for i = 1:400
     variable_name = variable_names{1};  % 假设MAT文件中只有一个变量
     Yf = data.(variable_name);  % 获取MAT文件中的变量值    % 对数据进行处理
     Hf = Yf./Xf;
-    h = abs(ifft(Hf));
-    interp = griddedInterpolant((1:num_srs_subcarriers)*4, h, 'cubic');
-    h = interp(1:num_srs_subcarriers*4);
+    Nsig = mdltest_mcov(Hf');
 
-    Nh = length(h); % 信号长度
-    h_sel = h(1:64);
-    t_sel = (0:63)*(1/srs_spacing/Nh)/TC;
-
-    [result_h, result_t] = find_peaks_with_conditions(h_sel, t_sel);
+    % 调用MUSIC算法进行谱估计（不绘制谱估计结果）
+    [f_est, P_music] = music_algorithm(Hf, M, Nsig, N_fft);
     
-    % 记录第一个延迟峰值
-    if isempty(result_t)
-        fprintf('No valid peaks found in data of No.%d.\n', i);
-    else
-        tau_ans(i) =  result_t(1);
-    end
-
+    % 延迟为正，频率为负，反转谱序列
+    P_music = P_music(end:-1:1);
+    
+    % 寻找峰值
+    [~, peak_indices] = findpeaks(P_music, 'SortStr', 'descend', 'NPeaks', Nsig);
+    f_est_peaks = f_est(peak_indices);
+    tau_ans(i) =  f_est_peaks(1)/TC/srs_spacing;
 end 
 %% 处理后400个文件
 tau_est = zeros(4,1);
@@ -53,30 +52,43 @@ for i = 401:800
     variable_name = variable_names{1};  % 假设MAT文件中只有一个变量
     Yf = data.(variable_name);  % 获取MAT文件中的变量值    % 对数据进行处理
     Hf = Yf./Xf;
-    f_tick_shift = 2*pi*srs_spacing*TC*(1:816);
-    tau_est = zeros(1,4);
-    for j=1:size(Hf,1)
-        p = polyfit(f_tick_shift, unwrap(angle(Hf(j, :)),[],2), 1);
-    
-        h = abs(ifft(Hf,[],2));
-        interp = griddedInterpolant((1:num_srs_subcarriers)*4, h', 'cubic');
-        h = interp(1:num_srs_subcarriers*4)';
-    
-        Nh = length(h); % 信号长度
-        h_sel = h(1:52);
-        t_sel = (0:51)*(1/srs_spacing/Nh)/TC;
+    for j = 1:size(Hf,1)
+        Nsig = mdltest_mcov(Hf(j,:)');
 
-        [result_h, result_t] = find_peaks_with_conditions(h_sel, t_sel);
-        tau_est(j) = result_t(1);
+        % 调用MUSIC算法进行谱估计（不绘制谱估计结果）
+        [f_est, P_music] = music_algorithm(Hf(j,:), M, Nsig, N_fft);
+        
+        % 延迟为正，频率为负，反转谱序列
+        P_music = P_music(end:-1:1);
+        
+        % 寻找峰值
+        [~, peak_indices] = findpeaks(P_music, 'SortStr', 'descend', 'NPeaks', Nsig);
+        f_est_peaks = f_est(peak_indices);
+        tau_est(j) = f_est_peaks(1)/TC/srs_spacing;
     end
-    tau_ans(i) = mean(tau_est);
-end 
+    tau_ans2(:,i) = tau_est';
+
+    % 计算 tau_est 的标准差
+    tau_std = std(tau_est);
+    
+    % 根据 tau_est 的标准差计算 tau_ans 的值
+    if tau_std < 10
+        % 如果标准差小于 10，则计算 tau_est 的均值
+        tau_ans(i) = mean(tau_est);
+    else
+        % 否则，取 tau_est 的最小值
+        tau_ans(i) = min(tau_est);
+        fprintf('the std is too large of No. %d\n', i);
+    end
+end
 %% 写入答案文件
 fileID = fopen('../data/answer.txt', 'w');
 for value = tau_ans
     fprintf(fileID, "%.2f,\r\n", value);
 end
 fclose(fileID);
+save tau_ans1 tau_ans
+save tau_ans2 tau_ans2(:,401:800)
 %% 压缩文件
 cd ..
 zip('xxx-西北工业大学.zip', {'algorithm', 'data/answer.txt'});
