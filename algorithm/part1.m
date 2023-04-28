@@ -8,7 +8,7 @@ num_srs_subcarriers = 816; % SRS的有效子载波数
 TC = 1/(480 * 1000 * 4096); 
 
 N = B / scs;                % 子载波数量
-delta_f = B / N;            % 子载波带宽
+delta_f = B / N;            % 子载波带宽w
 srs_spacing = comb_spacing * scs;  % SRS信号的频率间隔
 %% 读取输入文件
 pilot = load("../pilot and example/pilot.mat");
@@ -18,6 +18,10 @@ folder = '../data';  % 文件夹路径
 filePattern = fullfile(folder, '*.mat');  % 指定文件类型，这里是MAT文件
 matFiles = dir(filePattern);  % 获取所有符合要求的文件信息
 tau_ans = zeros(1,800);
+target_length = 50;
+
+grp1 = [126   141   221   238   290];  % 判定过大，大于190。
+grp2 = 142;  % 幅值太弱。
 %% 处理前400个文件
 for i = 1:20
     filename = fullfile(matFiles(i).folder, matFiles(i).name);  % 获取文件名及路径
@@ -25,46 +29,69 @@ for i = 1:20
     variable_names = who('-file', filename);  % 获取MAT文件中的变量名
     variable_name = variable_names{1};  % 假设MAT文件中只有一个变量
     Yf = data.(variable_name);  % 获取MAT文件中的变量值    % 对数据进行处理
-    x = Yf./Xf;
-    X = abs(ifft(x));
-    Nx = length(x); % 信号长度
-    X_sel = X(1:256);
-    t_sel = (0:255)*(1/srs_spacing/Nx)/TC;
+    Hf = Yf./Xf;
+    f_tick_shift = 2*pi*srs_spacing*TC*(1:816);
+    % 对原始数据进行移动平均平滑
+    smoothed_data = unwrap(angle(Hf));
+    for k = 1:10
+        smoothed_data = movmean(smoothed_data, 10);
+    end
+    p = polyfit(f_tick_shift, smoothed_data, 1);
+
+    [~, start_position] = find_decreasing_segment(smoothed_data, target_length);
+    p_part = polyfit(f_tick_shift(start_position+(1:target_length)), smoothed_data(start_position+(1:target_length)), 1);
+
+    h = abs(ifft(Hf));
+    interp = griddedInterpolant((1:num_srs_subcarriers)*4, h, 'cubic');
+    h = interp(1:num_srs_subcarriers*4);
+
+    Nh = length(h); % 信号长度
+    h_sel = h(1:52);
+    t_sel = (0:51)*(1/srs_spacing/Nh)/TC;
+
+    [result_h, result_t] = find_peaks_with_conditions(h_sel, t_sel);
+    
+    % 记录第一个延迟峰值
+    if isempty(result_t)
+        fprintf('No valid peaks found in data of No.%d.\n', i);
+    end
+
+    if p(1)/p_part(1) > 5 || p(1)/p_part(1) < 1/5
+        if result_t(1) < 50
+            tau_ans(i) =  result_t(1);
+        else
+            tau_ans(i) =  min(-p_part(1),-p(1));
+        end
+    else
+        tau_ans(i) =  result_t(1);
+    end
+
+
+
     % 绘制谱
     figure;
-    plot(t_sel,abs(X_sel));
+    subplot(2,1,1)
+    plot(t_sel,h_sel);
     grid on;
     xlim([0 256])
+    hold on; stem(result_t, result_h, 'r', 'filled');
+    title(['ifft method, delay value: ' num2str(tau_ans(i))])
 
-    % 使用findpeaks函数找到所有峰值
-    [peaks, locs] = findpeaks(X_sel);
-    
-    % 获取最大峰值
-    max_peak = max(peaks);
-    
-    % 筛选出幅度大于等于最大峰值一半的峰值，并且不在第一个值的位置
-    valid_peaks = peaks(peaks >= max_peak / 3 & locs ~= 1);
-    valid_locs = locs(peaks >= max_peak / 3 & locs ~= 1);
-    
-    % 如果存在有效峰值，获取第一个有效峰值及其位置
-    if ~isempty(valid_peaks)
-        first_peak = valid_peaks(1);
-        first_loc = valid_locs(1);
-        
-        % 获取峰值左侧、峰值、峰值右侧的数据
-        peak_data = X_sel(first_loc-1:first_loc+1);
-        time_data = t_sel(first_loc-1:first_loc+1);
-    
-        % 使用二次多项式拟合峰值附近的数据
-        p = polyfit(time_data, peak_data, 2);
-    
-        % 计算二次多项式的顶点（即真实峰值位置）
-        estimated_t = -p(2) / (2 * p(1));
-    
-        % 输出结果
-        fprintf('Estimated true time of first valid peak: %f\n', estimated_t);
-    else
-        fprintf('No valid peaks found.\n');
-    end
-    tau_ans(i) = estimated_t;
+    subplot(2,1,2)
+    plot(f_tick_shift,smoothed_data,'r');
+    hold on
+    plot(f_tick_shift,polyval(p,f_tick_shift),'g')
+    plot(f_tick_shift(start_position+(1:target_length)),polyval(p_part,f_tick_shift(start_position+(1:target_length))), 'b')
+    title(['fit with line, p1 = ' num2str(p(1)) ', p_part1 =' num2str(p_part(1))], 'Interpreter','none')
+    xlim([0 f_tick_shift(end)])
+    plot(f_tick_shift, unwrap(angle(Hf)), 'k')  % 相位复原，难点
+    plot(f_tick_shift, 816*abs(Hf), 'm')
+    legend('smooth-angle','fit-angle','part-angle','angle','Hf')
+    sgtitle(variable_name, 'Interpreter','none');
+
+
 end 
+%% 判断合理
+isInRange = (tau_ans(1:400) >= 0) & (tau_ans(1:400) <= 190); % 
+allInRange = all(isInRange, 'all');
+disp(find(~isInRange));

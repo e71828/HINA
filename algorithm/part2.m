@@ -21,64 +21,96 @@ filePattern = fullfile(folder, '*.mat');  % 指定文件类型，这里是MAT文
 matFiles = dir(filePattern);  % 获取所有符合要求的文件信息
 tau_ans = zeros(1,800);
 tau_est = zeros(4,1);
-grp1 = [414   419   437   454   455   456   469   471   476];
-grp2 = [504   515   521   525   552   555   556   562   567   583   586   589   590];
-grp3 = [622   624   632   638   648   650   664   672   680   691   698];
-grp4 = [704   724   730   739   751   761];
-for i = 413
+target_length = 45;
+
+grp1 = 468;
+grp2 = [173   199   284]+400;
+grp3 = [437   446   471   486   494   515   521   550   552   567   578   581];
+grp4 = [589   600   622   648   650   656   659   684   688   722   732   788];
+for i = 437
     filename = fullfile(matFiles(i).folder, matFiles(i).name);  % 获取文件名及路径
     data = load(filename);  % 加载MAT文件中的数据
     variable_names = who('-file', filename);  % 获取MAT文件中的变量名
     variable_name = variable_names{1};  % 假设MAT文件中只有一个变量
     Yf = data.(variable_name);  % 获取MAT文件中的变量值    % 对数据进行处理
-    x = Yf./Xf;
-    X = abs(ifft(x,[],2));
-    Nx = length(x); % 信号长度
-    X_sel_4 = X(:,1:256);
-    t_sel = (0:255)*(1/srs_spacing/Nx)/TC;
-    for j = 1:4
-        X_sel = X_sel_4(j,:);
-        % 绘制谱
-%         figure;
-%         plot(t_sel,abs(X_sel));
-%         grid on;
-%         xlim([0 256])
-    
-        % 使用findpeaks函数找到所有峰值
-        [peaks, locs] = findpeaks(X_sel);
-        
-        % 获取最大峰值
-        max_peak = max(peaks);
-        
-        % 筛选出幅度大于等于最大峰值一半的峰值，并且不在第一个值的位置
-        valid_peaks = peaks(peaks >= max_peak / 3 & locs ~= 1);
-        valid_locs = locs(peaks >= max_peak / 3 & locs ~= 1);
-        
-        % 如果存在有效峰值，获取第一个有效峰值及其位置
-        if ~isempty(valid_peaks)
-            first_peak = valid_peaks(1);
-            first_loc = valid_locs(1);
-            
-            % 获取峰值左侧、峰值、峰值右侧的数据
-            peak_data = X_sel(first_loc-1:first_loc+1);
-            time_data = t_sel(first_loc-1:first_loc+1);
-        
-            % 使用二次多项式拟合峰值附近的数据
-            p = polyfit(time_data, peak_data, 2);
-        
-            % 计算二次多项式的顶点（即真实峰值位置）
-            estimated_t = -p(2) / (2 * p(1));
-        
-            % 输出结果
-            fprintf('Estimated true time of first valid peak: %f\n', estimated_t);
-        else
-            fprintf('No valid peaks found.\n');
+    Hf = Yf./Xf;
+    f_tick_shift = 2*pi*srs_spacing*TC*(1:816);
+    tau_est = zeros(1,4);
+    for j=1:size(Hf,1)
+        % 对原始数据进行移动平均平滑
+        smoothed_data = unwrap(angle(Hf(j,:)));
+        for k = 1:10
+            smoothed_data = movmean(smoothed_data, 10);
         end
-        tau_est(j) = estimated_t;
+        p = polyfit(f_tick_shift, smoothed_data, 1);
+    
+        [~, start_position] = find_decreasing_segment(smoothed_data, target_length);
+        p_part = polyfit(f_tick_shift(start_position+(1:target_length)), smoothed_data(start_position+(1:target_length)), 1);
+    
+        h = abs(ifft(Hf(j,:),[],2));
+        interp = griddedInterpolant((1:num_srs_subcarriers)*4, h, 'cubic');
+        h = interp(1:num_srs_subcarriers*4);
+    
+        Nh = length(h); % 信号长度
+        h_sel = h(1:52);
+        t_sel = (0:51)*(1/srs_spacing/Nh)/TC;
+
+        [result_h, result_t] = find_peaks_with_conditions(h_sel, t_sel);
+        % 记录第一个延迟峰值
+        if isempty(result_t)
+            fprintf('No valid peaks found in data of No.%d.\n', i);
+        else
+        if p(1)/p_part(1) <0
+            continue
+        elseif p(1)/p_part(1) > 5 || p(1)/p_part(1) < 1/5
+            if result_t(1) < 50
+                tau_est(j) =  result_t(1);
+            else
+                tau_est(j) =  min(-p_part(1),-p(1));
+            end
+        else
+            tau_est(j) =  result_t(1);
+        end
+        end
+            
+        figure;
+        subplot(2,1,1)
+        plot(t_sel,h_sel);
+        grid on;
+        xlim([0 256])
+        hold on; stem(result_t, result_h, 'r', 'filled');
+        title(['ifft method, delay value: ' num2str(tau_est(j))])
+    
+        subplot(2,1,2)
+        plot(f_tick_shift,smoothed_data);
+        hold on
+        plot(f_tick_shift,polyval(p,f_tick_shift))
+        plot(f_tick_shift(start_position+(1:target_length)),polyval(p_part,f_tick_shift(start_position+(1:target_length))))
+        title(['fit with line, p1 = ' num2str(p(1)) ', p_part1 =' num2str(p_part(1))], 'Interpreter','none')
+        xlim([0 f_tick_shift(end)])
+    
+        sgtitle([variable_name ' of No.' num2str(i)], 'Interpreter','none');
     end
-    tau_ans(i) = tau_est_merge(tau_est);
+
+    % 计算 tau_est 的标准差
+    tau_est = tau_est(tau_est ~= 0);
+    tau_std = std(tau_est);
+    
+    % 根据 tau_est 的标准差计算 tau_ans 的值
+    if tau_std < 20
+        % 如果标准差小于 10，则计算 tau_est 的均值
+        tau_ans(i) = mean(tau_est);
+    else
+        % 否则，取 tau_est 的最小值
+        tau_ans(i) = min(tau_est);
+        fprintf('the std is too large of No. %d\n', i);
+        grp3 = [grp3 i];
+    end
 end 
-%% 写入答案文件
+isInRange = (tau_ans(401:800) >= 0) & (tau_ans(401:800) <= 190); % 
+allInRange = all(isInRange, 'all');
+disp(find(~isInRange)+400);
+%% 写入答案文
 fileID = fopen('../data/answer2.txt', 'w');
 for value = tau_ans(401:800)
     if value ~=0 
@@ -86,52 +118,3 @@ for value = tau_ans(401:800)
     end
 end
 fclose(fileID);
-
-%% 取出估计值
-function result = tau_est_merge(tau_est)
-    % 假设tau_est是一个4x1的矩阵，包含四个估计值
-    
-    % 计算标准差
-    standard_deviation = std(tau_est);
-    
-    % 初始化结果变量
-    result = NaN;
-    
-    % 检查标准差是否小于6
-    if standard_deviation < 6
-        % 如果标准差小于6，则取均值
-        result = mean(tau_est);
-        
-    % 检查标准差是否大于6且小于20
-    elseif standard_deviation > 6 && standard_deviation < 20
-        % 如果标准差大于6且小于20，则从最大到最小划分3段，选择两个数的数据段，取其中两数的中值
-        
-        % 对tau_est进行排序
-        sorted_tau_est = sort(tau_est, 'descend');
-        
-        % 划分3段
-        num_segments = 3;
-        segment_size = ceil(length(sorted_tau_est) / num_segments);
-        
-        % 选择两个数的数据段
-        two_number_segment = sorted_tau_est(segment_size + 1 : 2 * segment_size);
-        
-        % 计算两个数的中值
-        result = median(two_number_segment);
-        fprintf('Standard deviation is between 6 and 20. The median of the two-number segment is: %f\n', result);
-        
-    % 检查标准差是否大于20
-    elseif standard_deviation > 20
-        % 如果标准差大于20，则取最小两个值的中值
-        
-        % 对tau_est进行排序
-        sorted_tau_est = sort(tau_est);
-        
-        % 取最小两个值
-        min_two_values = sorted_tau_est(1:2);
-        
-        % 计算最小两个值的中值
-        result = median(min_two_values);
-        fprintf('Standard deviation is greater than 20. The median of the two smallest values is: %f\n', result);
-    end
-end
