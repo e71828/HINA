@@ -5,7 +5,7 @@ B = 100e6; % 带宽，单位Hz
 scs = 30e3; % 子载波间隔，单位Hz
 comb_spacing = 4; % comb间隔，每4个子载波放置1个SRS
 num_srs_subcarriers = 816; % SRS的有效子载波数
-TC = 1/(480 * 1000 * 4096); 
+TC = 1/(480 * 1000 * 4096);
 
 N = B / scs;                % 子载波数量
 delta_f = B / N;            % 子载波带宽w
@@ -23,7 +23,8 @@ M = 250;       % 协方差矩阵的阶数
 N_fft = 32768; % FFT点数（用于计算谱估计）
 
 %% 处理前400个文件
-for i = 1:400
+for i = 1
+    f_est = linspace(0, 1, N_fft);
     filename = fullfile(matFiles(i).folder, matFiles(i).name);  % 获取文件名及路径
     data = load(filename);  % 加载MAT文件中的数据
     % variable_names = who('-file', filename);  % 获取MAT文件中的变量名
@@ -34,15 +35,12 @@ for i = 1:400
     Nsig = mdltest_mcov(Hf');
 
     % 调用MUSIC算法进行谱估计（不绘制谱估计结果）
-    [f_est, P_music] = music_algorithm(Hf, M, Nsig, N_fft);
-    
+    [~, P_music] = music_algorithm(Hf, M, Nsig, N_fft);
     % 延迟为正，频率为负，反转谱序列
     P_music = P_music(end:-1:1);
-    
     % 寻找峰值
     [~, peak_indices] = findpeaks(P_music, 'SortStr', 'descend', 'NPeaks', Nsig);
     f_est_peaks = f_est(peak_indices);
-    
     % % 输出估计的频率和真实频率
     % disp('Estimated Frequencies:');
     % disp(f_est_peaks/TC/srs_spacing);
