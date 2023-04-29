@@ -82,13 +82,17 @@ for i = 401:800
     end
 end
 %% 写入答案文件
+if isfile('tau_ans1.mat')
+    load tau_ans1.mat
+else
+    save tau_ans2 tau_ans2
+    save tau_ans1 tau_ans1
+end
 fileID = fopen('../data/answer.txt', 'w');
 for value = tau_ans
     fprintf(fileID, "%.2f,\r\n", value);
 end
 fclose(fileID);
-save tau_ans1 tau_ans
-save tau_ans2 tau_ans2(:,401:800)
 %% 压缩文件
 cd ..
 zip('xxx-西北工业大学.zip', {'algorithm', 'data/answer.txt'});
