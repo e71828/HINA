@@ -18,7 +18,7 @@ folder = '../data';  % 文件夹路径
 filePattern = fullfile(folder, '*.mat');  % 指定文件类型，这里是MAT文件
 matFiles = dir(filePattern);  % 获取所有符合要求的文件信息
 tau_ans = zeros(1,800);
-tau_ans2 = zeros(4,800);
+tau_ans2 = zeros(4,400);
 
 M = 250;       % 协方差矩阵的阶数
 N_fft = 32768; % FFT点数（用于计算谱估计）
@@ -94,7 +94,7 @@ parfor i = 401:800
 end
 %% 保存数据
 save tau_ans2 tau_ans2
-save tau_ans1 tau_ans1
+save tau_ans1 tau_ans
 %% 写入答案文件
 fileID = fopen('../data/answer.txt', 'w');
 for value = tau_ans
