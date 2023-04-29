@@ -26,8 +26,9 @@ N_fft = 32768; % FFT点数（用于计算谱估计）
 for i = 1:400
     filename = fullfile(matFiles(i).folder, matFiles(i).name);  % 获取文件名及路径
     data = load(filename);  % 加载MAT文件中的数据
-    variable_names = who('-file', filename);  % 获取MAT文件中的变量名
-    variable_name = variable_names{1};  % 假设MAT文件中只有一个变量
+    % variable_names = who('-file', filename);  % 获取MAT文件中的变量名
+    % variable_name = variable_names{1};  % 假设MAT文件中只有一个变量
+    variable_name = 'ant1_data';
     Yf = data.(variable_name);  % 获取MAT文件中的变量值    % 对数据进行处理
     Hf = Yf./Xf;
     Nsig = mdltest_mcov(Hf');
@@ -60,7 +61,7 @@ for i = 1:400
     % hold off;
     % xlim([0 256])
 
-    tau_ans(i) =  f_est_peaks(1)/TC/srs_spacing;
+    tau_ans(i) =  min(f_est_peaks)/TC/srs_spacing;
 end 
 %% 判断合理
 isInRange = (tau_ans(1:400) >= 0) & (tau_ans(1:400) <= 190); % 

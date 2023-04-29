@@ -23,11 +23,12 @@ tau_ans2 = zeros(4,800);
 M = 250;       % 协方差矩阵的阶数
 N_fft = 32768; % FFT点数（用于计算谱估计）
 %% 处理前400个文件
-for i = 1:400
+parfor i = 1:400
     filename = fullfile(matFiles(i).folder, matFiles(i).name);  % 获取文件名及路径
     data = load(filename);  % 加载MAT文件中的数据
-    variable_names = who('-file', filename);  % 获取MAT文件中的变量名
-    variable_name = variable_names{1};  % 假设MAT文件中只有一个变量
+    % variable_names = who('-file', filename);  % 获取MAT文件中的变量名
+    % variable_name = variable_names{1};  % 假设MAT文件中只有一个变量
+    variable_name = 'ant1_data';
     Yf = data.(variable_name);  % 获取MAT文件中的变量值    % 对数据进行处理
     Hf = Yf./Xf;
     Nsig = mdltest_mcov(Hf');
@@ -41,17 +42,18 @@ for i = 1:400
     % 寻找峰值
     [~, peak_indices] = findpeaks(P_music, 'SortStr', 'descend', 'NPeaks', Nsig);
     f_est_peaks = f_est(peak_indices);
-    tau_ans(i) =  f_est_peaks(1)/TC/srs_spacing;
+    tau_ans(i) =  min(f_est_peaks)/TC/srs_spacing;
 end 
 %% 处理后400个文件
-tau_est = zeros(4,1);
-for i = 401:800
+parfor i = 401:800
     filename = fullfile(matFiles(i).folder, matFiles(i).name);  % 获取文件名及路径
     data = load(filename);  % 加载MAT文件中的数据
-    variable_names = who('-file', filename);  % 获取MAT文件中的变量名
-    variable_name = variable_names{1};  % 假设MAT文件中只有一个变量
+    % variable_names = who('-file', filename);  % 获取MAT文件中的变量名
+    % variable_name = variable_names{1};  % 假设MAT文件中只有一个变量
+    variable_name = 'ant4_data';
     Yf = data.(variable_name);  % 获取MAT文件中的变量值    % 对数据进行处理
     Hf = Yf./Xf;
+    tau_est = zeros(4,1);
     for j = 1:size(Hf,1)
         Nsig = mdltest_mcov(Hf(j,:)');
 
@@ -64,7 +66,7 @@ for i = 401:800
         % 寻找峰值
         [~, peak_indices] = findpeaks(P_music, 'SortStr', 'descend', 'NPeaks', Nsig);
         f_est_peaks = f_est(peak_indices);
-        tau_est(j) = f_est_peaks(1)/TC/srs_spacing;
+        tau_est(j) = min(f_est_peaks)/TC/srs_spacing;
     end
     tau_ans2(:,i) = tau_est';
 
