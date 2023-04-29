@@ -92,13 +92,10 @@ parfor i = 401:800
     tau_ans(i) = min(f_est_peaks)/TC/srs_spacing;
     tau_ans2(:,i-400) = tau_est;
 end
+%% 保存数据
+save tau_ans2 tau_ans2
+save tau_ans1 tau_ans1
 %% 写入答案文件
-if isfile('tau_ans1.mat')
-    load tau_ans1.mat
-else
-    save tau_ans2 tau_ans2
-    save tau_ans1 tau_ans1
-end
 fileID = fopen('../data/answer.txt', 'w');
 for value = tau_ans
     fprintf(fileID, "%.2f,\r\n", value);
