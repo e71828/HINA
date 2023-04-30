@@ -39,7 +39,8 @@ for i = 1
     % 延迟为正，频率为负，反转谱序列
     P_music = P_music(end:-1:1);
     % 寻找峰值
-    [~, peak_indices] = findpeaks(P_music, 'SortStr', 'descend', 'NPeaks', Nsig);
+    [peak_values, peak_indices] = findpeaks(P_music, 'SortStr', 'descend', 'NPeaks', Nsig);
+    peak_indices(peak_values<max(peak_values)-15) = [];
     f_est_peaks = f_est(peak_indices);
     % % 输出估计的频率和真实频率
     % disp('Estimated Frequencies:');

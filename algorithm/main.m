@@ -38,7 +38,8 @@ parfor i = 1:400
     % 延迟为正，频率为负，反转谱序列
     P_music = P_music(end:-1:1);
     % 寻找峰值
-    [~, peak_indices] = findpeaks(P_music, 'SortStr', 'descend', 'NPeaks', Nsig);
+    [peak_values, peak_indices] = findpeaks(P_music, 'SortStr', 'descend', 'NPeaks', Nsig);
+    peak_indices(peak_values<max(peak_values)-20) = [];
     f_est_peaks = f_est(peak_indices);
     tau_ans(i) =  min(f_est_peaks)/TC/srs_spacing;
 end 
@@ -62,10 +63,11 @@ parfor i = 401:800
         P_music = P_music(end:-1:1);
         P_music_set(j,:) = P_music;
     end
-    %% 画图
+
     tau_est = zeros(4,1);
     for j = 1:4
-        [~, peak_indices] = findpeaks(P_music_set(j,:), 'SortStr', 'descend', 'NPeaks', min(Nsig));
+        [peak_values, peak_indices] = findpeaks(P_music_set(j,:), 'SortStr', 'descend', 'NPeaks', max(Nsig));
+        peak_indices(peak_values<max(peak_values)-20) = [];
         f_est_peaks = f_est(peak_indices);
         % % 输出估计的频率和真实频率
         % disp('Estimated Frequencies:');
@@ -87,7 +89,8 @@ parfor i = 401:800
         tau_est(j) = min(f_est_peaks)/TC/srs_spacing;
     end
     P_music = mean(P_music_set,1);
-    [~, peak_indices] = findpeaks(P_music, 'SortStr', 'descend', 'NPeaks', min(Nsig));
+    [peak_values, peak_indices] = findpeaks(P_music, 'SortStr', 'descend', 'NPeaks', max(Nsig));
+    peak_indices(peak_values<max(peak_values)-20) = [];
     f_est_peaks = f_est(peak_indices);
     tau_ans(i) = min(f_est_peaks)/TC/srs_spacing;
     tau_ans2(:,i-400) = tau_est;
