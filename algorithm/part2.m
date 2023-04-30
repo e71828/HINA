@@ -86,15 +86,16 @@ disp(find(~isInRange)+400);
 %% 加载
 load tau_ans1.mat
 load tau_ans2.mat
-for i=1:400
+for i = 1:400
     tau_est = tau_ans2(:,i);
     if std(tau_est) > 10
-        % fprintf('%d', i);
-        [yield_v, yield_i] = min(tau_est);
-        tau_est(yield_i) = tau_ans(i+400);
-        if std(tau_est)>20
-            fprintf('%d ', i+400);
+        [tau_y, tau_i] = sort(tau_est);
+        if abs(tau_y(1) -tau_y(2)) < 12
+            fprintf('OK with two min-value verify:    NO.%d\n', i+400);
+        elseif  abs(tau_y(2) -tau_y(3)) < 12
+            fprintf('OK with two median-value verify: NO.%d\n', i+400);
+        else
+            fprintf('NAN:  NO.%d\n', i+400);
         end
     end
 end
-fprintf('\n');
