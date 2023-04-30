@@ -40,25 +40,25 @@ for i = 1
     P_music = P_music(end:-1:1);
     % 寻找峰值
     [peak_values, peak_indices] = findpeaks(P_music, 'SortStr', 'descend', 'NPeaks', Nsig);
-    peak_indices(peak_values<max(peak_values)-15) = [];
+    peak_indices(peak_values<max(peak_values)-20) = [];
     f_est_peaks = f_est(peak_indices);
-    % % 输出估计的频率和真实频率
-    % disp('Estimated Frequencies:');
-    % disp(f_est_peaks/TC/srs_spacing);
-    % 
-    % % 绘制MUSIC谱估计结果
-    % figure;
-    % plot(f_est/TC/srs_spacing, P_music, 'LineWidth', 1.2);
-    % xlabel('Frequency (units of pi)');
-    % ylabel('Magnitude / dB');
-    % title('MUSIC Spectrum');
-    % grid on;
-    % 
-    % % 标记估计的频率位置
-    % hold on;
-    % stem(f_est_peaks/TC/srs_spacing, max(P_music) * ones(size(f_est_peaks)), 'r', 'filled');
-    % hold off;
-    % xlim([0 256])
+    % 输出估计的频率和真实频率
+    disp('Estimated Frequencies:');
+    disp(f_est_peaks/TC/srs_spacing);
+
+    % 绘制MUSIC谱估计结果
+    figure;
+    plot(f_est/TC/srs_spacing, P_music, 'LineWidth', 1.2);
+    xlabel('Frequency (units of pi)');
+    ylabel('Magnitude / dB');
+    title('MUSIC Spectrum');
+    grid on;
+
+    % 标记估计的频率位置
+    hold on;
+    stem(f_est_peaks/TC/srs_spacing, max(P_music) * ones(size(f_est_peaks)), 'r', 'filled');
+    hold off;
+    xlim([0 256])
 
     tau_ans(i) =  min(f_est_peaks)/TC/srs_spacing;
 end 

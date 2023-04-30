@@ -26,8 +26,9 @@ M = 250;       % 协方差矩阵的阶数
 N_fft = 32768; % FFT点数（用于计算谱估计）
 grp = [419 421 437 456 484 485 521 542 552 576 589 592 608 612 628 654 680 730 734 742 745 762 786];
 grp2 = [421 485 542 592 608 612 742 745 786 ];
+grp3 = [419 430 462 482 514 541 542 592 608 612];
 %% 处理后400个文件
-for i = 485
+for i = 462
     f_est = linspace(0, 1, N_fft);
     filename = fullfile(matFiles(i).folder, matFiles(i).name);  % 获取文件名及路径
     data = load(filename);  % 加载MAT文件中的数据
@@ -50,7 +51,7 @@ for i = 485
     tau_est = zeros(4,1);
     for j = 1:4
         [peak_values, peak_indices] = findpeaks(P_music_set(j,:), 'SortStr', 'descend', 'NPeaks', max(Nsig));
-        peak_indices(peak_values<max(peak_values)-15) = [];
+        peak_indices(peak_values<max(peak_values)-20) = [];
         f_est_peaks = f_est(peak_indices);
         % 输出估计的频率和真实频率
         disp('Estimated Frequencies:');
@@ -73,7 +74,7 @@ for i = 485
     end
     P_music = mean(P_music_set,1);
     [peak_values, peak_indices] = findpeaks(P_music, 'SortStr', 'descend', 'NPeaks', max(Nsig));
-    peak_indices(peak_values<max(peak_values)-15) = [];
+    peak_indices(peak_values<max(peak_values)-20) = [];
     f_est_peaks = f_est(peak_indices);
     tau_ans(i) = min(f_est_peaks)/TC/srs_spacing;
     tau_ans2(:,i-400) = tau_est;
