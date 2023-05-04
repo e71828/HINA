@@ -19,7 +19,7 @@ filePattern = fullfile(folder, '*.mat');  % 指定文件类型，这里是MAT文
 matFiles = dir(filePattern);  % 获取所有符合要求的文件信息
 tau_ans = zeros(1,800);
 
-M = 250;       % 协方差矩阵的阶数
+M = 25;       % 协方差矩阵的阶数
 N_fft = 32768; % FFT点数（用于计算谱估计）
 
 %% 处理前400个文件
@@ -32,10 +32,10 @@ for i = 1
     variable_name = 'ant1_data';
     Yf = data.(variable_name);  % 获取MAT文件中的变量值    % 对数据进行处理
     Hf = Yf./Xf;
-    Nsig = mdltest_mcov(Hf');
+    Nsig = mdltest_mcov(Hf','fb');
 
     % 调用MUSIC算法进行谱估计（不绘制谱估计结果）
-    [~, P_music] = music_algorithm(Hf, M, Nsig, N_fft);
+    [~, P_music] = music_algorithm(Hf, M, Nsig, N_fft, false, 'fb');
     % 延迟为正，频率为负，反转谱序列
     P_music = P_music(end:-1:1);
     % 寻找峰值

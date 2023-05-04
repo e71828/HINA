@@ -1,5 +1,5 @@
 %% MUSIC
-function [f_est, P_music] = music_algorithm(x, M, L, N_fft, plot_spectrum)
+function [f_est, P_music] = music_algorithm(x, M, L, N_fft, plot_spectrum, fb)
 % MUSIC算法进行谱估计
 % 输入：
 %   x - 输入信号
@@ -14,13 +14,22 @@ function [f_est, P_music] = music_algorithm(x, M, L, N_fft, plot_spectrum)
 % 设置默认参数
 if nargin < 5
     plot_spectrum = false;
+    fbFlag = false;
 end
 
+if  nargin == 6
+    validatestring(fb,{'fb'},'music_algorithm','',6);
+    fbFlag = true;
+end
 % 计算自相关函数
 rxx = xcorr(x, M-1, 'biased');
 
 % 构造Hermitian Toeplitz协方差矩阵
 Rxx = toeplitz(rxx(M:end));
+
+if fbFlag
+  Rxx = spsmooth(Rxx,1,'fb');
+end
 
 % 计算协方差矩阵的特征值和特征向量
 [V, D] = eig(Rxx);

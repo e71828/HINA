@@ -42,7 +42,7 @@ validateattributes(x,{'double'},{'finite','nonempty'},...
 
 fbFlag = false;
 if  nargin == 2
-    validatestring(fb,{'fb'},'mdltest','',2);
+    validatestring(fb,{'fb'},'mdltest_mcov','',2);
     fbFlag = true;
 end
 
@@ -54,7 +54,7 @@ rxx = xcorr(x, M-1, 'biased');
 % 构造Hermitian Toeplitz协方差矩阵
 R = toeplitz(rxx(M:end));
 if fbFlag
-  R = spsmooth(R,1,'fb');
+  R = spsmooth(R,2,'fb');
 end
 [~, eigenvalsOut] = eig(R);
 eigenvals = real(eigenvalsOut);
