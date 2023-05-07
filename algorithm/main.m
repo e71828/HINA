@@ -20,11 +20,9 @@ matFiles = dir(filePattern);  % 获取所有符合要求的文件信息
 tau_ans = zeros(1,800);
 tau_ans2 = zeros(4,400);
 
-M = 25;       % 协方差矩阵的阶数
 N_fft = 32768; % FFT点数（用于计算谱估计）
 %% 处理前400个文件
 parfor i = 1:400
-    f_est = linspace(0, 1, N_fft);
     filename = fullfile(matFiles(i).folder, matFiles(i).name);  % 获取文件名及路径
     data = load(filename);  % 加载MAT文件中的数据
     % variable_names = who('-file', filename);  % 获取MAT文件中的变量名
@@ -32,11 +30,9 @@ parfor i = 1:400
     variable_name = 'ant1_data';
     Yf = data.(variable_name);  % 获取MAT文件中的变量值    % 对数据进行处理
     Hf = Yf./Xf;
-    Nsig = mdltest_mcov(Hf', 'fb');
+    [Nsig, R] = mdltest_mcov(Hf', 'fb');
     % 调用MUSIC算法进行谱估计（不绘制谱估计结果）
-    [~, P_music] = music_algorithm(Hf, M, Nsig, N_fft, false, 'fb');
-    % 延迟为正，频率为负，反转谱序列
-    P_music = P_music(end:-1:1);
+    [f_est, P_music] = music_algorithm(R, Nsig, N_fft, false);
     % 寻找峰值
     [peak_values, peak_indices] = findpeaks(P_music, 'SortStr', 'descend', 'NPeaks', Nsig);
     peak_indices(peak_values<max(peak_values)-20) = [];
@@ -45,7 +41,6 @@ parfor i = 1:400
 end 
 %% 处理后400个文件
 parfor i = 401:800
-    f_est = linspace(0, 1, N_fft);
     filename = fullfile(matFiles(i).folder, matFiles(i).name);  % 获取文件名及路径
     data = load(filename);  % 加载MAT文件中的数据
     % variable_names = who('-file', filename);  % 获取MAT文件中的变量名
@@ -53,39 +48,21 @@ parfor i = 401:800
     variable_name = 'ant4_data';
     Yf = data.(variable_name);  % 获取MAT文件中的变量值    % 对数据进行处理
     Hf = Yf./Xf;
-    P_music_set = zeros(4,N_fft);
+    P_music_set = zeros(4,1024);
     Nsig = zeros(4,1);
+    f_est = linspace(0, 1, N_fft);
+    f_est = f_est(1:1024);
     for j = 1:size(Hf,1)
-        Nsig(j) = mdltest_mcov(Hf(j,:)', 'fb');
+        [Nsig(j), R] = mdltest_mcov(Hf(j,:)', 'fb');
         % 调用MUSIC算法进行谱估计（不绘制谱估计结果）
-        [~, P_music] = music_algorithm(Hf(j,:), M, Nsig(j), N_fft, false, 'fb');
-        % 延迟为正，频率为负，反转谱序列
-        P_music = P_music(end:-1:1);
+        [~, P_music] = music_algorithm(R, Nsig(j), N_fft, false);
         P_music_set(j,:) = P_music;
     end
-
     tau_est = zeros(4,1);
     for j = 1:4
         [peak_values, peak_indices] = findpeaks(P_music_set(j,:), 'SortStr', 'descend', 'NPeaks', max(Nsig));
         peak_indices(peak_values<max(peak_values)-20) = [];
         f_est_peaks = f_est(peak_indices);
-        % % 输出估计的频率和真实频率
-        % disp('Estimated Frequencies:');
-        % disp(f_est_peaks/TC/srs_spacing);
-        % 
-        % % 绘制MUSIC谱估计结果
-        % figure;
-        % plot(f_est/TC/srs_spacing, P_music_set(j,:), 'LineWidth', 1.2);
-        % xlabel('Frequency (units of pi)');
-        % ylabel('Magnitude / dB');
-        % title('MUSIC Spectrum');
-        % grid on;
-        % 
-        % % 标记估计的频率位置
-        % hold on;
-        % stem(f_est_peaks/TC/srs_spacing, max(P_music_set(j,:)) * ones(size(f_est_peaks)), 'r', 'filled');
-        % hold off;
-        % xlim([0 256])
         tau_est(j) = min(f_est_peaks)/TC/srs_spacing;
     end
     P_music = mean(P_music_set,1);

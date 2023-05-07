@@ -22,14 +22,10 @@ matFiles = dir(filePattern);  % 获取所有符合要求的文件信息
 tau_ans = zeros(1,800);
 tau_ans2 = zeros(4,400);
 
-M = 25;       % 协方差矩阵的阶数
+N_crop = 560;
 N_fft = 32768; % FFT点数（用于计算谱估计）
-grp = [419 421 437 456 484 485 521 542 552 576 589 592 608 612 628 654 680 730 734 742 745 762 786];
-grp2 = [421 485 542 592 608 612 742 745 786 ];
-grp3 = [419 430 462 482 514 541 542 592 608 612];
 %% 处理后400个文件
 for i = 730
-    f_est = linspace(0, 1, N_fft);
     filename = fullfile(matFiles(i).folder, matFiles(i).name);  % 获取文件名及路径
     data = load(filename);  % 加载MAT文件中的数据
     % variable_names = who('-file', filename);  % 获取MAT文件中的变量名
@@ -37,14 +33,12 @@ for i = 730
     variable_name = 'ant4_data';
     Yf = data.(variable_name);  % 获取MAT文件中的变量值    % 对数据进行处理
     Hf = Yf./Xf;
-    P_music_set = zeros(4,N_fft);
+    P_music_set = zeros(4,1024);
     Nsig = zeros(4,1);
     for j = 1:size(Hf,1)
-        Nsig(j) = mdltest_mcov(Hf(j,:)','fb');
+        [Nsig(j), R] = mdltest_mcov(Hf(j,:)','fb');
         % 调用MUSIC算法进行谱估计（不绘制谱估计结果）
-        [~, P_music] = music_algorithm(Hf(j,:), M, Nsig(j), N_fft, false, 'fb');
-        % 延迟为正，频率为负，反转谱序列
-        P_music = P_music(end:-1:1);
+        [f_est, P_music] = music_algorithm(R(1:N_crop,1:N_crop), Nsig(j), N_fft, false);
         P_music_set(j,:) = P_music;
     end
     % 画图
@@ -60,7 +54,7 @@ for i = 730
         % 绘制MUSIC谱估计结果
         figure;
         plot(f_est/TC/srs_spacing, P_music_set(j,:), 'LineWidth', 1.2);
-        xlabel('Frequency (units of pi)');
+        xlabel('Frequency (units of TC)');
         ylabel('Magnitude / dB');
         title('MUSIC Spectrum');
         grid on;

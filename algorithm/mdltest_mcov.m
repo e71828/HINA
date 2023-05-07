@@ -1,4 +1,4 @@
-function NSIG = mdltest_mcov(x, fb)
+function [NSIG, R] = mdltest_mcov(x, fb)
 %mdltest   Minimum description length test
 %   NSIG = mdltest(X) estimates the number of signals, NSIG, from the
 %   received signal, X, using the Minimum Description Length test. X 
@@ -47,14 +47,15 @@ if  nargin == 2
 end
 
 K = size(x,1);
-M = 10;
 % 计算自相关函数
-rxx = xcorr(x, M-1, 'biased');
+rxx = xcorr(x, 'biased')';
 
 % 构造Hermitian Toeplitz协方差矩阵
-R = toeplitz(rxx(M:end));
+R = toeplitz(rxx(K:end), rxx(K:-1:1));
 if fbFlag
-  R = spsmooth(R,2,'fb');
+    for i =1:250
+        R = spsmooth(R,2,'fb');
+    end
 end
 [~, eigenvalsOut] = eig(R);
 eigenvals = real(eigenvalsOut);
