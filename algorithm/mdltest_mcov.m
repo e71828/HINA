@@ -53,7 +53,7 @@ rxx = xcorr(x, 'biased')';
 % 构造Hermitian Toeplitz协方差矩阵
 R = toeplitz(rxx(K:end));  % rxx(K:-1:1)
 if fbFlag
-    for i = 250
+    for i = 1:10
         R = spsmooth(R,50,"fb");
     end
 end
