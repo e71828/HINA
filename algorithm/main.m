@@ -67,7 +67,7 @@ parfor i = 401:800
     end
     P_music = mean(P_music_set,1);
     [peak_values, peak_indices] = findpeaks(P_music, 'SortStr', 'descend', 'NPeaks', max(Nsig));
-    peak_indices(peak_values<max(peak_values)-20) = [];
+    peak_indices(peak_values<max(peak_values)-10) = [];
     f_est_peaks = f_est(peak_indices);
     tau_ans(i) = min(f_est_peaks)/TC/srs_spacing;
     tau_ans2(:,i-400) = tau_est;
