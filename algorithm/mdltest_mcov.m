@@ -51,10 +51,10 @@ K = size(x,1);
 rxx = xcorr(x, 'biased')';
 
 % 构造Hermitian Toeplitz协方差矩阵
-R = toeplitz(rxx(K:end), rxx(K:-1:1));
+R = toeplitz(rxx(K:end));  % rxx(K:-1:1)
 if fbFlag
-    for i =1:250
-        R = spsmooth(R,2,'fb');
+    for i = 250
+        R = spsmooth(R,50,"fb");
     end
 end
 [~, eigenvalsOut] = eig(R);

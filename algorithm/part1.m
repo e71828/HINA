@@ -21,7 +21,7 @@ tau_ans = zeros(1,800);
 
 N_fft = 32768; % FFT点数（用于计算谱估计）
 %% 处理前400个文件
-for i = 1
+for i = 100:110
     filename = fullfile(matFiles(i).folder, matFiles(i).name);  % 获取文件名及路径
     data = load(filename);  % 加载MAT文件中的数据
     % variable_names = who('-file', filename);  % 获取MAT文件中的变量名
@@ -36,7 +36,7 @@ for i = 1
 
     % 寻找峰值
     [peak_values, peak_indices] = findpeaks(P_music, 'SortStr', 'descend', 'NPeaks', Nsig);
-    peak_indices(peak_values<max(peak_values)-20) = [];
+    peak_indices(peak_values<max(peak_values)-10) = [];
     f_est_peaks = f_est(peak_indices);
     % 输出估计的频率和真实频率
     disp('Estimated Frequencies:');

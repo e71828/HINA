@@ -35,7 +35,7 @@ parfor i = 1:400
     [f_est, P_music] = music_algorithm(R, Nsig, N_fft, false);
     % 寻找峰值
     [peak_values, peak_indices] = findpeaks(P_music, 'SortStr', 'descend', 'NPeaks', Nsig);
-    peak_indices(peak_values<max(peak_values)-20) = [];
+    peak_indices(peak_values<max(peak_values)-10) = [];
     f_est_peaks = f_est(peak_indices);
     tau_ans(i) =  min(f_est_peaks)/TC/srs_spacing;
 end 
@@ -61,7 +61,7 @@ parfor i = 401:800
     tau_est = zeros(4,1);
     for j = 1:4
         [peak_values, peak_indices] = findpeaks(P_music_set(j,:), 'SortStr', 'descend', 'NPeaks', max(Nsig));
-        peak_indices(peak_values<max(peak_values)-20) = [];
+        peak_indices(peak_values<max(peak_values)-10) = [];
         f_est_peaks = f_est(peak_indices);
         tau_est(j) = min(f_est_peaks)/TC/srs_spacing;
     end

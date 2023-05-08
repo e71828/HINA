@@ -22,7 +22,6 @@ matFiles = dir(filePattern);  % 获取所有符合要求的文件信息
 tau_ans = zeros(1,800);
 tau_ans2 = zeros(4,400);
 
-N_crop = 560;
 N_fft = 32768; % FFT点数（用于计算谱估计）
 %% 处理后400个文件
 for i = 730
@@ -38,14 +37,14 @@ for i = 730
     for j = 1:size(Hf,1)
         [Nsig(j), R] = mdltest_mcov(Hf(j,:)','fb');
         % 调用MUSIC算法进行谱估计（不绘制谱估计结果）
-        [f_est, P_music] = music_algorithm(R(1:N_crop,1:N_crop), Nsig(j), N_fft, false);
+        [f_est, P_music] = music_algorithm(R, Nsig(j), N_fft, false);
         P_music_set(j,:) = P_music;
     end
     % 画图
     tau_est = zeros(4,1);
     for j = 1:4
         [peak_values, peak_indices] = findpeaks(P_music_set(j,:), 'SortStr', 'descend', 'NPeaks', max(Nsig));
-        peak_indices(peak_values<max(peak_values)-20) = [];
+        peak_indices(peak_values<max(peak_values)-10) = [];
         f_est_peaks = f_est(peak_indices);
         % 输出估计的频率和真实频率
         disp('Estimated Frequencies:');
@@ -68,7 +67,7 @@ for i = 730
     end
     P_music = mean(P_music_set,1);
     [peak_values, peak_indices] = findpeaks(P_music, 'SortStr', 'descend', 'NPeaks', max(Nsig));
-    peak_indices(peak_values<max(peak_values)-20) = [];
+    peak_indices(peak_values<max(peak_values)-10) = [];
     f_est_peaks = f_est(peak_indices);
     tau_ans(i) = min(f_est_peaks)/TC/srs_spacing;
     tau_ans2(:,i-400) = tau_est;
